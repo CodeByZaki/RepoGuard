@@ -1,9 +1,10 @@
 name: Strażnik
 
-# Trzy powody, dla których Strażnik rusza na obchód:
-#  1. harmonogram — w każdy poniedziałek rano, zanim zacznie się tydzień,
-#  2. ręcznie — kiedy ktoś chce sprawdzić stan tu i teraz,
-#  3. przy zmianie w kodzie — żeby nowy termin nie wszedł do repo niezauważony.
+# Cztery sposoby uruchomienia Strażnika:
+#  1. harmonogram — w każdy poniedziałek rano,
+#  2. ręcznie — kiedy potrzebna jest kontrola tu i teraz,
+#  3. przy pushu do main,
+#  4. przy pull requeście do main.
 on:
   schedule:
     - cron: "0 6 * * 1"
