@@ -1,4 +1,3 @@
-````markdown
 # 🛡️ RepoGuard — Strażnik Daty Ważności
 
 **Automatyczna analiza terminów, wygasających elementów i długu technicznego w repozytoriach .NET.**
@@ -468,5 +467,4 @@ Zakres działania RepoGuard jest celowo ograniczony do analizy terminów i eleme
 
 ## Licencja
 
-MIT.
-````
+
