@@ -1,0 +1,40 @@
+{
+  "//": "Konfiguracja Strażnika dla jego własnego repozytorium. Strażnik pilnuje sam siebie.",
+
+  "warnWithinDays": 30,
+  "noticeWithinDays": 90,
+
+  "//exclude": "sample/ to celowo zaniedbane repo demonstracyjne, a testy trzymają daty w danych testowych — jedno i drugie kłamałoby w raporcie.",
+  "exclude": [
+    "**/bin/**",
+    "**/obj/**",
+    "**/node_modules/**",
+    "**/.git/**",
+    "**/*.Designer.cs",
+    "**/Migrations/**",
+    "sample/**",
+    "tests/**"
+  ],
+
+  "datedComments": {
+    "enabled": true,
+    "markers": ["TODO", "FIXME", "HACK", "XXX", "TEMP", "TYMCZASOWO", "DEADLINE", "REMOVE"],
+    "reportUndated": false
+  },
+
+  "obsolete": {
+    "enabled": true,
+    "staleAfterMonths": 12
+  },
+
+  "hardcodedDates": { "enabled": true },
+  "featureFlags": { "enabled": true },
+  "targetFramework": { "enabled": true },
+  "secrets": { "enabled": true },
+
+  "//tls": "Wymaga sieci — włącz, jeśli chcesz pilnować certyfikatów domen z konfiguracji.",
+  "tls": { "enabled": false },
+
+  "//nuGet": "Wymaga sieci — odpytuje nuget.org o wycofane i porzucone pakiety.",
+  "nuGet": { "enabled": false }
+}

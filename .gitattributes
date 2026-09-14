@@ -1,0 +1,9 @@
+# Jedne zakończenia linii w repozytorium, niezależnie od systemu autora.
+# CI chodzi na Linuksie, więc w repo trzymamy LF.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.gif binary
+*.pfx binary
+*.cer binary

@@ -1,0 +1,136 @@
+name: Strażnik
+
+# Trzy powody, dla których Strażnik rusza na obchód:
+#  1. harmonogram — w każdy poniedziałek rano, zanim zacznie się tydzień,
+#  2. ręcznie — kiedy ktoś chce sprawdzić stan tu i teraz,
+#  3. przy zmianie w kodzie — żeby nowy termin nie wszedł do repo niezauważony.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  obchod:
+    name: Obchód repozytorium
+    runs-on: ubuntu-latest
+
+    # Na poziomie zadania, bo warunek "if" kroku nie widzi zmiennych
+    # zdefiniowanych w tym samym kroku.
+    env:
+      WEBHOOK: ${{ secrets.STRAZNIK_WEBHOOK_URL }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Zbuduj Strażnika
+        run: dotnet build src/Straznik.Cli -c Release
+
+      - name: Obchód
+        id: obchod
+        run: |
+          straznik() {
+            dotnet run --project src/Straznik.Cli -c Release --no-build -- "$@"
+          }
+
+          straznik --format markdown --out raport.md   --fail-on none
+          straznik --format html     --out raport.html --fail-on none
+          straznik --format json     --out raport.json --fail-on none
+
+          {
+            echo "po_terminie=$(jq '.podsumowanie.poTerminie' raport.json)"
+            echo "wygasa=$(jq '.podsumowanie.wygasaWkrotce' raport.json)"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "# 🛡️ Obchód tego repozytorium"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          cat raport.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Własne repozytorium jest utrzymane, więc obchód powyżej zwykle nic nie znajduje -
+      # a podsumowanie przebiegu, które mówi tylko "czysto", nie pokazuje, co Strażnik potrafi.
+      # Ten krok skanuje dołączone repozytorium demonstracyjne: ten sam automat, ten sam raport,
+      # tyle że na projekcie, który ma za sobą kilka lat zaniedbań.
+      - name: Demonstracja na przykładowym repozytorium
+        run: |
+          demo() {
+            dotnet run --project src/Straznik.Cli -c Release --no-build -- \
+              --path sample/SklepInternetowy --fail-on none "$@"
+          }
+
+          demo --format markdown --out raport-demo.md
+          demo --format html     --out raport-demo.html
+
+          {
+            echo ""
+            echo "---"
+            echo ""
+            echo "# 🧪 Demonstracja — \`sample/SklepInternetowy\`"
+            echo ""
+            echo "Celowo zaniedbany projekt dołączony do repozytorium."
+            echo "Tak wygląda ten sam raport, gdy Strażnik ma co znaleźć."
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          cat raport-demo.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Zachowaj raporty
+        uses: actions/upload-artifact@v7
+        with:
+          name: raport-straznika
+          path: |
+            raport.html
+            raport.json
+            raport.md
+            raport-demo.html
+            raport-demo.md
+          retention-days: 90
+
+      # Powiadomienie idzie tylko wtedy, gdy jest o czym mówić.
+      # Alert, który przychodzi co poniedziałek bez powodu, przestaje być alertem.
+      - name: Powiadom na webhooku
+        if: ${{ env.WEBHOOK != '' && (steps.obchod.outputs.po_terminie != '0' || steps.obchod.outputs.wygasa != '0') }}
+        run: |
+          dotnet run --project src/Straznik.Cli -c Release --no-build -- \
+            --quiet --fail-on none --webhook "$WEBHOOK"
+
+      - name: Zgłoszenie w repozytorium
+        if: ${{ github.event_name != 'pull_request' && steps.obchod.outputs.po_terminie != '0' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PO_TERMINIE: ${{ steps.obchod.outputs.po_terminie }}
+          WYGASA: ${{ steps.obchod.outputs.wygasa }}
+        run: |
+          numer=$(gh issue list --label straznik --state open --json number --jq '.[0].number')
+          podsumowanie="Obchód z $(date -u +%Y-%m-%d): ${PO_TERMINIE} po terminie, ${WYGASA} wygasa wkrótce."
+
+          if [ -n "$numer" ]; then
+            gh issue edit "$numer" --body-file raport.md
+            gh issue comment "$numer" --body "$podsumowanie"
+          else
+            gh label create straznik --color B60205 \
+              --description "Terminy pilnowane przez Strażnika" || true
+            gh issue create --title "Strażnik: terminy po dacie ważności" \
+              --label straznik --body-file raport.md
+          fi
+
+      # Świadomie ostatni krok: raporty i powiadomienia mają wyjść nawet wtedy,
+      # gdy przebieg ma się zakończyć czerwono.
+      - name: Werdykt
+        run: |
+          echo "Po terminie: ${{ steps.obchod.outputs.po_terminie }}"
+          echo "Wygasa wkrótce: ${{ steps.obchod.outputs.wygasa }}"
+          dotnet run --project src/Straznik.Cli -c Release --no-build -- --quiet --fail-on expired

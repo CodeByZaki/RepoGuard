@@ -1,0 +1,9 @@
+<!--
+  Celowo pusty plik.
+
+  Zatrzymuje dziedziczenie ustawien z glownego Directory.Build.props, zeby
+  przykladowe "zgnile" repozytorium w sample/ zylo wlasnym zyciem: ma swoj
+  wlasny (przeterminowany) TargetFramework i nie jest budowane razem z solucja.
+-->
+<Project>
+</Project>

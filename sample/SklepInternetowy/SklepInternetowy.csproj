@@ -1,0 +1,19 @@
+<!--
+  PRZYKŁAD DEMONSTRACYJNY — celowo zaniedbany projekt.
+  Nie wchodzi do Straznik.sln i nie jest budowany. Służy wyłącznie do pokazania,
+  co Strażnik znajduje w normalnym, żyjącym repozytorium.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WindowsAzure.Storage" Version="9.3.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+</Project>

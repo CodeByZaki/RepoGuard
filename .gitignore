@@ -1,0 +1,16 @@
+bin/
+obj/
+artifacts/
+*.user
+.vs/
+.idea/
+
+# Zrzuty przygotowane pod publikację — nie są częścią projektu
+zrzuty/
+
+# Raporty generowane przez samego Strażnika
+raport.html
+raport.json
+raport.md
+raport-demo.html
+raport-demo.md

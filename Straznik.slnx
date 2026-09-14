@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Straznik.Cli/Straznik.Cli.csproj" />
+    <Project Path="src/Straznik.Core/Straznik.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Straznik.Tests/Straznik.Tests.csproj" />
+  </Folder>
+</Solution>
