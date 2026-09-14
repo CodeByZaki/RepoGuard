@@ -1,22 +1,40 @@
 # Demonstracja RepoGuard
 
-Scenariusz demonstracji na około 90 sekund. Zbudowany tak, żeby pokazać pełny cykl: coś w kodzie traci ważność → automat to wykrywa → człowiek dostaje informację.
+Ten dokument pokazuje przykładowy sposób uruchomienia RepoGuard na dołączonym repozytorium demonstracyjnym `sample/SklepInternetowy`.
 
-Wszystkie polecenia poniżej zostały sprawdzone na tym repozytorium.
+Repozytorium `sample/` zostało celowo przygotowane tak, aby zawierało różne typy elementów wykrywanych przez RepoGuard, m.in.:
+
+- przeterminowane komentarze `TODO`,
+- elementy oznaczone `[Obsolete]`,
+- feature flagi z terminem ważności,
+- daty zapisane w kodzie,
+- token z datą wygaśnięcia,
+- starszy framework,
+- zależności NuGet wymagające uwagi.
+
+Przykłady zakładają uruchamianie poleceń z katalogu głównego repozytorium.
+
+---
+
+## 1. Budowanie projektu
 
 ```bash
 dotnet build -c Release
 ```
 
+Po zbudowaniu aplikacji kolejne polecenia można wykonywać z opcją `--no-build`.
+
 ---
 
-## 1. Pokaż problem (10 s)
+## 2. Przykładowy problem w kodzie
 
-Otwórz plik i pokaż jedną linijkę. Bez tego widz nie wie, czego dotyczy raport w następnym kroku.
+W pliku:
 
-```bash
-sed -n '8,12p' sample/SklepInternetowy/src/Koszyk/KoszykService.cs
+```text
+sample/SklepInternetowy/src/Koszyk/KoszykService.cs
 ```
+
+znajduje się m.in. datowany komentarz:
 
 ```csharp
 // Stara ścieżka zapisu koszyka. Zostawiamy na czas migracji danych.
@@ -24,178 +42,320 @@ sed -n '8,12p' sample/SklepInternetowy/src/Koszyk/KoszykService.cs
 private const bool UzywajStaregoZapisu = true;
 ```
 
-**Co powiedzieć:** „Termin minął półtora roku temu. Kod działa, testy przechodzą, nikt się nie dowiedział."
+Sam kod może nadal kompilować się i działać poprawnie, mimo że termin zapisany w komentarzu już minął.
+
+RepoGuard traktuje taki wpis jako element wymagający weryfikacji.
 
 ---
 
-## 2. Uruchom Strażnika (20 s)
+## 3. Analiza repozytorium demonstracyjnego
 
 ```bash
-dotnet run --project src/Straznik.Cli -c Release -- \
-  --path sample/SklepInternetowy --today 2026-09-13
+dotnet run --project src/Straznik.Cli -c Release --no-build -- \
+  --path sample/SklepInternetowy \
+  --today 2026-09-13
 ```
 
-Na ekranie pojawia się raport: sekcja `PO TERMINIE`, oś czasu, podsumowanie. Kod wyjścia `2`.
+Opcja:
 
-```bash
-echo "kod wyjścia: $?"
+```text
+--today 2026-09-13
 ```
 
-**Zwróć uwagę widza na oś czasu.** Lista mówi, co jest do zrobienia. Oś pokazuje, w którym miesiącu zrobi się gęsto.
+ustawia jawną datę odniesienia. Dzięki temu demonstracja może zostać powtórzona z tą samą datą niezależnie od aktualnego dnia.
 
+Przykładowe podsumowanie:
+
+```text
+Podsumowanie  7 po terminie · 3 wygasa wkrótce · 6 zbliża się · 3 do wiadomości
 ```
-  wrz   paź   lis   gru   sty   lut   mar   kwi
-  ██    ███   ██    █     ·     █     █     ·
-  2     3     2     1     ·     1     1     ·
+
+Raport zawiera:
+
+- elementy po terminie,
+- elementy wygasające wkrótce,
+- terminy zbliżające się w kolejnych miesiącach,
+- informacje dodatkowe,
+- oś czasu prezentującą rozkład terminów.
+
+Przykład osi czasu:
+
+```text
+wrz   paź   lis   gru   sty   lut   mar   kwi
+██    ███   ██    █     ·     █     █     ·
+2     3     2     1     ·     1     1     ·
 ```
+
+Przy domyślnym ustawieniu `--fail-on expired` wykrycie elementu po terminie powoduje zwrócenie kodu wyjścia `2`.
 
 ---
 
-## 3. Ten sam kod, trzy różne daty (20 s)
+## 4. Wpływ upływu czasu na wynik
 
-Najmocniejszy fragment demonstracji.
+RepoGuard ocenia elementy względem daty kontroli.
+
+Można to zobaczyć, uruchamiając analizę tego samego repozytorium dla kilku różnych dat:
 
 ```bash
 for d in 2025-01-15 2025-06-10 2026-09-13; do
   echo "=== $d ==="
   dotnet run --project src/Straznik.Cli -c Release --no-build -- \
-    --path sample/SklepInternetowy --today $d | grep Podsumowanie
+    --path sample/SklepInternetowy \
+    --today $d \
+    --fail-on none | grep Podsumowanie
 done
 ```
 
-```
+Przykładowy wynik:
+
+```text
 === 2025-01-15 ===
-  Podsumowanie  2 po terminie · 1 wygasa wkrótce · 3 zbliża się · 13 do wiadomości
+Podsumowanie  2 po terminie · 1 wygasa wkrótce · 3 zbliża się · 13 do wiadomości
+
 === 2025-06-10 ===
-  Podsumowanie  5 po terminie · 0 wygasa wkrótce · 2 zbliża się · 12 do wiadomości
+Podsumowanie  5 po terminie · 0 wygasa wkrótce · 2 zbliża się · 12 do wiadomości
+
 === 2026-09-13 ===
-  Podsumowanie  7 po terminie · 3 wygasa wkrótce · 6 zbliża się · 3 do wiadomości
+Podsumowanie  7 po terminie · 3 wygasa wkrótce · 6 zbliża się · 3 do wiadomości
 ```
 
-**Co powiedzieć:** „Nikt nie dotknął tego repozytorium. Liczba zaległości urosła sama, bo minął czas. Dwa, pięć, siedem. Dlatego to musi działać cyklicznie, a nie raz przy przeglądzie kodu."
+Kod repozytorium w tym przykładzie się nie zmienia. Zmienia się jedynie data odniesienia.
 
-To odróżnia Strażnika od listy `TODO` w IDE — widać, że pod spodem działa mechanizm liczenia terminów, a nie statyczne wyszukiwanie tekstu.
+Pokazuje to, dlaczego RepoGuard może być uruchamiany cyklicznie — stan techniczny repozytorium może wymagać ponownej oceny również wtedy, gdy nie pojawił się nowy commit.
 
 ---
 
-## 4. Dlaczego Roslyn, a nie `grep` (15 s)
+## 5. Analiza składniowa z wykorzystaniem Roslyna
 
-```bash
-grep -rn "TODO(" sample/SklepInternetowy --include=*.cs | wc -l
-```
+RepoGuard nie ogranicza się do wyszukiwania tekstu.
 
-Następnie pokaż test, który pilnuje tej różnicy:
-
-```bash
-grep -A 12 "Znacznik_w_literale_tekstowym" tests/Straznik.Tests/DatedCommentInspectorTests.cs
-```
+Przykład:
 
 ```csharp
-string s = "TODO(2020-01-01): to tylko tekst";   // grep: zaległość sprzed 6 lat
-                                                  // Strażnik: literał tekstowy, pomija
+string komunikat = "TODO(2020-01-01): to tylko tekst";
 ```
 
-**Co powiedzieć:** „Strażnik analizuje drzewo składni. Rozróżnia komentarz programisty od napisu wyświetlanego użytkownikowi. I robi to bez kompilacji, więc działa też na projekcie, którego akurat nie da się zbudować."
+Proste wyszukiwanie tekstowe może potraktować powyższy fragment jako datowany `TODO`.
+
+RepoGuard analizuje drzewo składni Roslyna i rozpoznaje, że `TODO(...)` znajduje się w literale tekstowym, a nie w komentarzu.
+
+Zachowanie to jest objęte testem:
+
+```text
+Znacznik_w_literale_tekstowym_nie_jest_znaleziskiem
+```
+
+w pliku:
+
+```text
+tests/Straznik.Tests/DatedCommentInspectorTests.cs
+```
+
+Analiza składniowa nie wymaga kompilowania badanego repozytorium ani wykonywania jego `restore`.
 
 ---
 
-## 5. Powiadomienie dociera do człowieka (15 s)
+## 6. Raport Markdown
 
-Bez konta na Discordzie, na lokalnym nasłuchu — wystarczy, żeby pokazać, że kanał powiadomień faktycznie działa.
+Raport można zapisać do pliku:
 
-**Terminal 1:**
+```bash
+dotnet run --project src/Straznik.Cli -c Release --no-build -- \
+  --path sample/SklepInternetowy \
+  --today 2026-09-13 \
+  --format markdown \
+  --out raport-demo.md \
+  --fail-on none
+```
+
+Powstanie plik:
+
+```text
+raport-demo.md
+```
+
+Format Markdown jest wykorzystywany również przez workflow GitHub Actions do tworzenia podsumowania przebiegu.
+
+---
+
+## 7. Raport HTML
+
+RepoGuard może utworzyć samodzielny raport HTML:
+
+```bash
+dotnet run --project src/Straznik.Cli -c Release --no-build -- \
+  --path sample/SklepInternetowy \
+  --today 2026-09-13 \
+  --format html \
+  --out raport.html \
+  --fail-on none
+```
+
+Powstały plik:
+
+```text
+raport.html
+```
+
+można otworzyć bezpośrednio w przeglądarce.
+
+Raport zawiera m.in.:
+
+- podsumowanie analizy,
+- listę znalezisk,
+- poziomy pilności,
+- lokalizacje elementów,
+- oś czasu.
+
+---
+
+## 8. Raport JSON
+
+Dane mogą zostać zapisane także w formacie JSON:
+
+```bash
+dotnet run --project src/Straznik.Cli -c Release --no-build -- \
+  --path sample/SklepInternetowy \
+  --today 2026-09-13 \
+  --format json \
+  --out raport.json \
+  --fail-on none
+```
+
+Format JSON pozwala wykorzystać wynik w dalszych automatyzacjach i integracjach.
+
+---
+
+## 9. Powiadomienie przez webhook
+
+RepoGuard może wysłać podsumowanie wyniku na webhook.
+
+Do lokalnego sprawdzenia tej funkcji można uruchomić prosty serwer HTTP.
+
+### Terminal 1
+
 ```bash
 python3 - <<'PY'
 from http.server import BaseHTTPRequestHandler, HTTPServer
-import json, io, sys
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+import json
 
-class H(BaseHTTPRequestHandler):
+class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
-        d = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
-        print(d.get('content') or d.get('text'))
-        self.send_response(204); self.end_headers()
-    def log_message(self, *a): pass
+        length = int(self.headers['Content-Length'])
+        data = json.loads(self.rfile.read(length))
+        print(data.get('content') or data.get('text') or data)
+        self.send_response(204)
+        self.end_headers()
 
-print("czekam na powiadomienie...")
-HTTPServer(('127.0.0.1', 8979), H).handle_request()
+    def log_message(self, *args):
+        pass
+
+print("Oczekiwanie na webhook...")
+HTTPServer(('127.0.0.1', 8979), Handler).handle_request()
 PY
 ```
 
-**Terminal 2:**
-```bash
-dotnet run --project src/Straznik.Cli -c Release --no-build -- \
-  --path sample/SklepInternetowy --today 2026-09-13 \
-  --quiet --fail-on none --webhook "http://127.0.0.1:8979/webhook"
-```
-
-W pierwszym terminalu pojawia się gotowa wiadomość:
-
-```
-🛡️ **Strażnik Daty Ważności** — 2026-09-13
-🔴 7 po terminie · 🟠 3 wygasa w najbliższych dniach
-
-• `-561 dni` TODO(2025-03-01): usunąć fallback po zakończeniu migracji koszyków
-   src/Koszyk/KoszykService.cs:10
-• `-469 dni` FeatureFlags/nowyKoszyk — nadal włączona, termin 2025-06-01
-   appsettings.Production.json:16 → FeatureFlags/nowyKoszyk
-...
-```
-
-Na prawdziwym Discordzie działa tak samo — wystarczy podmienić adres. Format wiadomości dobierany jest automatycznie na podstawie hosta.
-
----
-
-## 6. Dashboard HTML (10 s)
+### Terminal 2
 
 ```bash
 dotnet run --project src/Straznik.Cli -c Release --no-build -- \
-  --path sample/SklepInternetowy --today 2026-09-13 \
-  --format html --out raport.html && start raport.html
+  --path sample/SklepInternetowy \
+  --today 2026-09-13 \
+  --quiet \
+  --fail-on none \
+  --webhook "http://127.0.0.1:8979/webhook"
 ```
 
-Samodzielny plik, jasny i ciemny motyw, oś czasu jako wykres słupkowy. Wygląda lepiej niż terminal, więc dobrze sprawdza się jako drugi obraz w karuzeli.
+Pierwszy terminal powinien odebrać wygenerowane podsumowanie.
 
----
-
-## 7. To działa bez udziału człowieka (10 s)
-
-Pokaż zakładkę **Actions** na GitHubie. W podsumowaniu przebiegu są dwie sekcje jedna pod drugą:
-
-- **Obchód tego repozytorium** — czysto, zero zaległości
-- **Demonstracja `sample/SklepInternetowy`** — pełna tabela znalezisk
-
-Gotowy przebieg do pokazania: [Actions → Strażnik]((https://github.com/CodeByZaki/RepoGuard/actions))
-
-**Zdanie na koniec:** „W poniedziałek o szóstej rano dzieje się to bez mojego udziału. Jeśli coś jest po terminie, dostaję wiadomość i czerwony przebieg. Jeśli nic nie wygasa — cisza, bo powiadomienie przychodzące co tydzień bez powodu przestaje być powiadomieniem."
-
----
-
-## Zakończenie, jeśli zostanie 10 sekund
+RepoGuard obsługuje również webhooki Discord i Slack:
 
 ```bash
-dotnet run --project src/Straznik.Cli -c Release --no-build -- --today 2026-09-13
+straznik --webhook https://discord.com/api/webhooks/...
+straznik --webhook https://hooks.slack.com/services/...
 ```
 
-Strażnik uruchomiony na własnym repozytorium — czysto, kod wyjścia `0`.
+Adres może zostać przekazany również przez zmienną środowiskową:
 
-**Co powiedzieć:** „Za pierwszym razem czysto nie było. Znalazł cztery przeterminowane `TODO` we własnym kodzie — w komentarzach, które opisywały ten wzorzec jako przykład w dokumentacji. Tak powstała opcja `straznik:ignore`. Pierwszym użytkownikiem Strażnika był Strażnik."
+```bash
+export STRAZNIK_WEBHOOK_URL=...
+```
 
 ---
 
-## Wskazówki techniczne do nagrania
+## 10. Automatyczna analiza w GitHub Actions
 
-- **Czcionka w terminalu minimum 16 pt.** LinkedIn kompresuje materiały wideo i zdjęcia; mniejszy tekst staje się nieczytelny.
-- **Okno szerokie na 100 kolumn.** Raport formatowany jest na 78 znaków — w węższym oknie zawijanie zepsuje układ.
-- **Ciemne tło.** Kolory raportu (czerwony, pomarańczowy, cyjan) dobrane są pod ciemny terminal.
-- **Zawsze z `--today 2026-09-13`.** Dzięki temu liczby na nagraniu zgadzają się z tym, co mówisz, także za rok.
-- **Nie nagrywaj kompilacji.** Wykonaj `dotnet build -c Release` przed nagraniem i używaj `--no-build`.
+Repozytorium zawiera workflow:
 
-## Kolejność zdjęć, jeśli robisz zrzuty zamiast nagrania
+```text
+.github/workflows/straznik.yml
+```
 
-1. raport w terminalu, w kadrze sekcja `PO TERMINIE` i oś czasu — najważniejszy
-2. dashboard HTML
-3. podsumowanie przebiegu w GitHub Actions
-4. powiadomienie (Discord albo lokalny nasłuch)
+Może zostać uruchomiony:
 
-Pierwsze zdjęcie decyduje o tym, czy ktokolwiek obejrzy drugie.
+- zgodnie z harmonogramem,
+- po pushu do `main`,
+- przy pull requeście do `main`,
+- ręcznie przez `workflow_dispatch`.
+
+Podczas przebiegu analizowane są:
+
+1. właściwe repozytorium RepoGuard,
+2. przykładowe repozytorium `sample/SklepInternetowy`.
+
+Workflow generuje:
+
+```text
+raport.md
+raport.html
+raport.json
+raport-demo.md
+raport-demo.html
+```
+
+Pliki są zachowywane jako artefakt GitHub Actions przez 90 dni.
+
+Aktualne przebiegi można zobaczyć tutaj:
+
+[Actions → RepoGuard](https://github.com/CodeByZaki/RepoGuard/actions)
+
+---
+
+## 11. Analiza własnego repozytorium
+
+RepoGuard może przeanalizować również własny kod:
+
+```bash
+dotnet run --project src/Straznik.Cli -c Release --no-build -- \
+  --today 2026-09-13
+```
+
+Własna konfiguracja projektu znajduje się w:
+
+```text
+straznik.json
+```
+
+Repozytorium demonstracyjne oraz testy są w niej pomijane, aby celowo przygotowane dane testowe nie wpływały na wynik analizy właściwego projektu.
+
+---
+
+## 12. Testy
+
+Pełny zestaw testów można uruchomić poleceniem:
+
+```bash
+dotnet test -c Release
+```
+
+Aktualny zestaw obejmuje:
+
+```text
+78 testów
+78 zakończonych powodzeniem
+0 niepowodzeń
+0 pominiętych
+```
+
+Testy nie wymagają połączenia z siecią i wykorzystują jawnie określane daty odniesienia, dzięki czemu ich wyniki są deterministyczne.
+
