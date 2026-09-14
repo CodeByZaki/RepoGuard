@@ -1,8 +1,10 @@
-# 🛡️ Strażnik Daty Ważności
+# 🛡️ RepoGuard — Strażnik Daty Ważności
 
-**Twój kod ma datę ważności. Nikt jej nie sprawdza.**
+**Automatyczna analiza terminów, wygasających elementów i długu technicznego w repozytoriach .NET.**
 
-Strażnik skanuje repozytorium .NET Roslynem i buduje **oś czasu wszystkiego, co w nim wygasa** — a potem daje znać, *zanim* wygaśnie. Nie pinguje strony. Pilnuje terminów, które sam sobie kiedyś wyznaczyłeś i o których zapomniałeś tego samego dnia.
+RepoGuard analizuje kod źródłowy, konfigurację i zależności projektu, wyszukując elementy powiązane z terminem ważności, wycofania lub planowanego usunięcia.
+
+Wyniki są klasyfikowane według pilności i przedstawiane w formie raportu oraz osi czasu. Narzędzie może działać lokalnie albo automatycznie w GitHub Actions.
 
 <p align="center">
   <img src="docs/raport-terminal.svg" alt="Raport Strażnika w terminalu: sekcja PO TERMINIE z siedmioma zaległościami, oś czasu na najbliższe 12 miesięcy i podsumowanie" width="760">
@@ -19,17 +21,13 @@ Strażnik skanuje repozytorium .NET Roslynem i buduje **oś czasu wszystkiego, c
 
 ## Problem
 
-Każde repozytorium jest pełne obietnic z terminem:
+W repozytoriach często znajdują się elementy, których znaczenie lub poprawność jest powiązana z określonym terminem.
+
+Może to być na przykład komentarz techniczny:
 
 ```csharp
 // TODO(2025-03-01): usunąć fallback po zakończeniu migracji koszyków
 private const bool UzywajStaregoZapisu = true;
-```
-
-Jest wrzesień 2026. Fallback nadal tam jest. Nikt o nim nie wie, bo nic nie jest zepsute — dopóki nie jest.
-
-To samo dotyczy flagi, która miała żyć dwa sprinty, atrybutu `[Obsolete]` sprzed dwóch lat, tokenu w konfiguracji, `net8.0` na trzy miesiące przed końcem wsparcia i pakietu, którego autor porzucił w 2018 roku. **Każda z tych rzeczy ma datę. Żadna nie ma pilnującego.**
-
 ## Czego pilnuje
 
 | Inspektor | Co znajduje | Sieć |
@@ -131,11 +129,24 @@ Terminy podane z dokładnością do miesiąca lub kwartału liczą się na **ost
 string komunikat = "TODO(2020-01-01): to tylko tekst dla użytkownika";
 ```
 
-`grep` zgłosi to jako dług sprzed sześciu lat. Strażnik chodzi po drzewie składni i widzi literał tekstowy, a nie obietnicę programisty. Ta różnica ma test: `Znacznik_w_literale_tekstowym_nie_jest_znaleziskiem`.
+`grep` zgłosi taki tekst jako pasujące wystąpienie. RepoGuard analizuje drzewo składni Roslyna i rozpoznaje, że jest to literał tekstowy, a nie komentarz zawierający termin.
+
+Ta różnica jest objęta testem:
+
+`Znacznik_w_literale_tekstowym_nie_jest_znaleziskiem`
 
 Analiza jest **czysto składniowa** — bez kompilacji i bez `restore`. Dzięki temu Strażnik działa na repozytorium, którego akurat nie da się zbudować.
 
-## Uruchamianie samo z siebie
+## Automatyczne uruchamianie
+
+RepoGuard może być uruchamiany automatycznie przez GitHub Actions:
+
+- zgodnie z harmonogramem,
+- po pushu do `main`,
+- przy pull requeście do `main`,
+- ręcznie przez `workflow_dispatch`.
+
+Dzięki temu analiza może zostać wykonana zarówno okresowo, jak i podczas wprowadzania zmian do repozytorium.
 
 ```mermaid
 flowchart LR
@@ -164,11 +175,12 @@ flowchart LR
 
 ### GitHub Actions
 
-Gotowy przepływ leży w [`.github/workflows/straznik.yml`](.github/workflows/straznik.yml). Rusza na obchód z trzech powodów:
+Gotowy przepływ leży w [`.github/workflows/straznik.yml`](.github/workflows/straznik.yml). Workflow może zostać uruchomiony na cztery sposoby:
 
-- **w każdy poniedziałek o 6:00 UTC** — zanim zacznie się tydzień,
-- **ręcznie** (`workflow_dispatch`) — kiedy ktoś chce sprawdzić stan tu i teraz,
-- **przy każdej zmianie w `main`** — żeby nowy termin nie wszedł do repo niezauważony.
+- **w każdy poniedziałek o 6:00 UTC** (`schedule`),
+- **przy pushu do `main`**,
+- **przy pull requeście do `main`**,
+- **ręcznie** (`workflow_dispatch`).
 
 Co robi z wynikiem:
 
