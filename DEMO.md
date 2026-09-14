@@ -1,4 +1,4 @@
-# Jak pokazać, że Strażnik działa
+# Demonstracja RepoGuard
 
 Scenariusz demonstracji na około 90 sekund. Zbudowany tak, żeby pokazać pełny cykl: coś w kodzie traci ważność → automat to wykrywa → człowiek dostaje informację.
 
@@ -165,7 +165,7 @@ Pokaż zakładkę **Actions** na GitHubie. W podsumowaniu przebiegu są dwie sek
 - **Obchód tego repozytorium** — czysto, zero zaległości
 - **Demonstracja `sample/SklepInternetowy`** — pełna tabela znalezisk
 
-Gotowy przebieg do pokazania: [Actions → Strażnik](https://github.com/CodeByZaki/expiry-guard/actions)
+Gotowy przebieg do pokazania: [Actions → Strażnik]((https://github.com/CodeByZaki/RepoGuard/actions))
 
 **Zdanie na koniec:** „W poniedziałek o szóstej rano dzieje się to bez mojego udziału. Jeśli coś jest po terminie, dostaję wiadomość i czerwony przebieg. Jeśli nic nie wygasa — cisza, bo powiadomienie przychodzące co tydzień bez powodu przestaje być powiadomieniem."
 
