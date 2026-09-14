@@ -467,5 +467,4 @@ Zakres działania RepoGuard jest celowo ograniczony do analizy terminów i eleme
 
 ## Licencja
 
-Mit.
-
+MIT.
